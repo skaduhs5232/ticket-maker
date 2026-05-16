@@ -1,0 +1,214 @@
+<div class="chat-shell">
+
+  <!-- ══════════════════════════════════
+       PROJECT SELECTOR OVERLAY
+  ═══════════════════════════════════ -->
+  @if (showProjectSelector()) {
+    <div class="overlay slide-up">
+      <div class="selector-card">
+        <div class="selector-header">
+          <div class="logo-mark">
+            <lucide-icon name="ticket" [size]="28" strokeWidth="2.2" style="color: #8b5cf6;"></lucide-icon>
+          </div>
+          <div>
+            <h1 class="selector-title">Ticket Maker</h1>
+            <p class="selector-subtitle">Assistente de suporte inteligente</p>
+          </div>
+        </div>
+
+        <p class="selector-desc">
+          Selecione o projeto sobre o qual você precisa de ajuda. Nossa IA irá tentar resolver seu problema e, se necessário, abrir um chamado no OpenProject.
+        </p>
+
+        @if (projectsLoading()) {
+          <div class="loading-list">
+            @for (i of [1,2,3,4]; track i) {
+              <div class="skeleton-item"></div>
+            }
+          </div>
+        }
+
+        @if (projectsError()) {
+          <div class="error-box">
+            <span>⚠️</span> {{ projectsError() }}
+          </div>
+        }
+
+        @if (!projectsLoading() && !projectsError()) {
+          <div class="project-list">
+            @for (project of projects(); track project.id) {
+              <button
+                class="project-item"
+                [id]="'project-' + project.id"
+                (click)="selectProject(project)">
+                <div class="project-item-icon">{{ project.name[0] }}</div>
+                <div class="project-item-info">
+                  <span class="project-item-name">{{ project.name }}</span>
+                  @if (project.description) {
+                    <span class="project-item-desc">{{ project.description }}</span>
+                  }
+                </div>
+                <lucide-icon name="chevron-right" class="project-item-arrow" [size]="16" style="flex-shrink:0"></lucide-icon>
+              </button>
+            }
+          </div>
+        }
+      </div>
+    </div>
+  }
+
+  <!-- ══════════════════════════════════
+       CHAT INTERFACE
+  ═══════════════════════════════════ -->
+  @if (!showProjectSelector()) {
+    <div class="chat-layout fade-in">
+
+      <!-- Sidebar -->
+      <aside class="sidebar">
+        <div class="sidebar-logo">
+          <lucide-icon name="ticket" [size]="22" strokeWidth="2.2" style="color: #8b5cf6;"></lucide-icon>
+          <span class="sidebar-title">Ticket Maker</span>
+        </div>
+
+        <div class="sidebar-section">
+          <p class="sidebar-label">Projeto ativo</p>
+          <div class="sidebar-project-tag">
+            <div class="project-avatar">{{ selectedProject()?.name?.[0] }}</div>
+            <span>{{ selectedProjectName() }}</span>
+          </div>
+        </div>
+
+        <button class="sidebar-change-btn" id="change-project-btn" (click)="changeProject()">
+          <lucide-icon name="arrow-left-right" [size]="14"></lucide-icon>
+          Trocar projeto
+        </button>
+
+        <div class="sidebar-footer">
+          <div class="status-dot"></div>
+          <span>Gemini AI</span>
+        </div>
+      </aside>
+
+      <!-- Mobile topbar (visible only on small screens) -->
+      <div class="mobile-topbar">
+        <div class="mobile-topbar-left">
+          <div class="project-avatar">{{ selectedProject()?.name?.[0] }}</div>
+          <span class="mobile-project-name">{{ selectedProjectName() }}</span>
+        </div>
+        <button class="mobile-change-btn" (click)="changeProject()">
+          <lucide-icon name="arrow-left-right" [size]="14"></lucide-icon>
+          Trocar projeto
+        </button>
+      </div>
+
+      <!-- Main chat area -->
+      <main class="chat-main">
+
+        <!-- Header -->
+        <header class="chat-header">
+          <div class="chat-header-info">
+            <h2>Suporte <span class="gradient-text">Inteligente</span></h2>
+            <p class="chat-header-sub">{{ selectedProjectName() }} · Powered by Gemini</p>
+          </div>
+          <div class="header-badge">
+            <div class="status-dot"></div>
+            Online
+          </div>
+        </header>
+
+        <!-- Messages -->
+        <div class="messages-area" id="messages-area">
+          @for (msg of messages(); track msg.id; let i = $index) {
+            <div
+              class="message-row"
+              [class.message-row--user]="msg.role === 'user'"
+              [style.animation-delay]="i * 30 + 'ms'">
+
+              @if (msg.role === 'ai') {
+                <div class="avatar avatar--ai">
+                  <lucide-icon name="bot" [size]="16" strokeWidth="2.2" style="color: #fff;"></lucide-icon>
+                </div>
+              }
+
+              <div class="bubble-wrapper">
+
+                <!-- Tool call indicators -->
+                @if (msg.toolCalls && msg.toolCalls.length > 0) {
+                  <div class="tool-calls">
+                    @for (tc of msg.toolCalls; track tc.tool) {
+                      <div class="tool-call-badge">
+                        <div class="tool-call-spinner"></div>
+                        <span>{{ getToolLabel(tc.tool) }}</span>
+                      </div>
+                    }
+                  </div>
+                }
+
+                <div
+                  class="bubble"
+                  [class.bubble--user]="msg.role === 'user'"
+                  [class.bubble--ai]="msg.role === 'ai'"
+                  [class.bubble--streaming]="msg.isStreaming">
+
+                  @if (msg.content) {
+                    <div class="bubble-content" [innerHTML]="formatContent(msg.content)"></div>
+                  }
+
+                  @if (msg.isStreaming && !msg.content) {
+                    <div class="typing-indicator">
+                      <span></span><span></span><span></span>
+                    </div>
+                  }
+
+                  @if (msg.isStreaming && msg.content) {
+                    <span class="cursor-blink">▋</span>
+                  }
+                </div>
+              </div>
+
+              @if (msg.role === 'user') {
+                <div class="avatar avatar--user">
+                  <lucide-icon name="user" [size]="16" strokeWidth="2.2"></lucide-icon>
+                </div>
+              }
+            </div>
+          }
+
+          <div #messagesEnd></div>
+        </div>
+
+        <!-- Input area -->
+        <div class="input-area">
+          <div class="input-wrapper" [class.input-wrapper--active]="inputText().length > 0">
+            <textarea
+              #inputRef
+              class="chat-input"
+              id="chat-input"
+              placeholder="Descreva seu problema ou dúvida..."
+              rows="1"
+              [value]="inputText()"
+              (input)="onInputChange($event)"
+              (keydown)="onInputKeydown($event)"
+              [disabled]="isStreaming()"
+            ></textarea>
+
+            <button
+              class="send-btn"
+              id="send-btn"
+              [disabled]="!canSend()"
+              (click)="sendMessage()">
+              @if (isStreaming()) {
+                <div class="send-spinner"></div>
+              } @else {
+                <lucide-icon name="send" [size]="18"></lucide-icon>
+              }
+            </button>
+          </div>
+          <p class="input-hint">Enter para enviar · Shift+Enter para nova linha</p>
+        </div>
+
+      </main>
+    </div>
+  }
+
+</div>

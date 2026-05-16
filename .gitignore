@@ -20,6 +20,16 @@ yarn-error.log
 .settings/
 *.sublime-workspace
 
+.env
+.venv
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+
 # Visual Studio Code
 .vscode/*
 !.vscode/settings.json

@@ -1,3 +1,135 @@
-/* You can add global styles to this file, and also import other style files */
+/* ─── Design System ────────────────────────────────────────────────── */
+:root {
+  --color-bg:          #0d0f14;
+  --color-surface:     #13161e;
+  --color-surface-2:   #1a1e2a;
+  --color-surface-3:   #222636;
+  --color-border:      rgba(255,255,255,0.07);
+  --color-border-hover:rgba(255,255,255,0.15);
 
-@import 'tailwindcss';
+  --color-primary:     #6366f1;
+  --color-primary-dim: rgba(99,102,241,0.15);
+  --color-primary-glow:rgba(99,102,241,0.35);
+  --color-accent:      #8b5cf6;
+  --color-accent-2:    #06b6d4;
+
+  --color-user-bubble: #1e2035;
+  --color-ai-bubble:   #13161e;
+
+  --color-text:        #e2e4ef;
+  --color-text-muted:  #8b8fa8;
+  --color-text-dim:    #545772;
+
+  --color-success:     #10b981;
+  --color-warning:     #f59e0b;
+  --color-error:       #ef4444;
+
+  --radius-sm:   6px;
+  --radius-md:   12px;
+  --radius-lg:   18px;
+  --radius-xl:   24px;
+  --radius-full: 9999px;
+
+  --shadow-glow: 0 0 40px rgba(99,102,241,0.12);
+  --shadow-card: 0 4px 24px rgba(0,0,0,0.4);
+  --shadow-input: 0 2px 8px rgba(0,0,0,0.3);
+
+  --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+/* ─── Reset ─────────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+  width: 100%;
+  background: var(--color-bg);
+  color: var(--color-text);
+  overflow: hidden;
+}
+
+a { color: var(--color-primary); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+button {
+  cursor: pointer;
+  font-family: inherit;
+  border: none;
+  outline: none;
+}
+
+input, textarea, select {
+  font-family: inherit;
+  outline: none;
+}
+
+/* ─── Scrollbar ──────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--color-surface-3);
+  border-radius: var(--radius-full);
+}
+::-webkit-scrollbar-thumb:hover { background: var(--color-border-hover); }
+
+/* ─── Animations ─────────────────────────────────────────────────────── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes shimmer {
+  from { background-position: -200% center; }
+  to   { background-position: 200% center; }
+}
+
+@keyframes gradientShift {
+  0%, 100% { background-position: 0% 50%; }
+  50%       { background-position: 100% 50%; }
+}
+
+/* ─── Utility Classes ────────────────────────────────────────────────── */
+.fade-in  { animation: fadeIn 0.3s var(--transition) both; }
+.slide-up { animation: slideUp 0.4s var(--transition) both; }
+
+.text-muted  { color: var(--color-text-muted); }
+.text-dim    { color: var(--color-text-dim); }
+.text-primary{ color: var(--color-primary); }
+.text-success{ color: var(--color-success); }
+.text-error  { color: var(--color-error); }
+
+.flex { display: flex; }
+.flex-col { flex-direction: column; }
+.items-center { align-items: center; }
+.justify-center { justify-content: center; }
+.gap-2 { gap: 8px; }
+.gap-3 { gap: 12px; }
+.gap-4 { gap: 16px; }

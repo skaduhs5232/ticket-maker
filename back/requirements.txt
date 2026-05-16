@@ -1,0 +1,16 @@
+langchain
+langchain-google-genai
+fastapi
+uvicorn
+pydantic
+python-dotenv
+langchain_community
+langchain_core
+psycopg2-binary
+sqlalchemy
+alembic
+pgvector
+langchain-postgres
+python-multipart
+requests
+sse-starlette
