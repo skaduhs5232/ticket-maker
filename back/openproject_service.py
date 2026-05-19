@@ -1,14 +1,12 @@
-import os
 import base64
 from typing import List, Dict, Optional
 import requests
-from dotenv import load_dotenv
 
-load_dotenv()
-
-OPENPROJECT_URL = os.environ.get("OPENPROJECT_API_URL", "").rstrip("/")
-OPENPROJECT_TOKEN = os.environ.get("OPENPROJECT_TOKEN", "")
-TIMEOUT = int(os.environ.get("OPENPROJECT_TIMEOUT", 30))
+from config import (
+    OPENPROJECT_API_URL as OPENPROJECT_URL,
+    OPENPROJECT_TOKEN,
+    OPENPROJECT_TIMEOUT as TIMEOUT,
+)
 
 
 def _get_headers() -> Dict[str, str]:

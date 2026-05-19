@@ -1,0 +1,70 @@
+<div class="login-shell">
+  <button
+    type="button"
+    class="theme-floating"
+    (click)="themeService.toggle()"
+    [attr.aria-label]="'Alternar tema'"
+    [title]="themeService.theme() === 'dark' ? 'Mudar para tema claro' : 'Mudar para tema escuro'">
+    {{ themeService.theme() === 'dark' ? 'Claro' : 'Escuro' }}
+  </button>
+
+  <div class="login-card slide-up">
+    <div class="login-header">
+      <div class="logo-mark">
+        <svg lucideTicket [size]="28" strokeWidth="2.2" style="color: #8b5cf6;"></svg>
+      </div>
+      <div>
+        <h1 class="title">Ticket Maker</h1>
+        <p class="subtitle">Entre com sua conta para começar</p>
+      </div>
+    </div>
+
+    <form class="login-form" (submit)="submit($event)" novalidate>
+      <label class="field">
+        <span class="label">E-mail <span class="required">*</span></span>
+        <input
+          type="email"
+          class="input"
+          placeholder="seu.email@empresa.com"
+          autocomplete="username"
+          name="email"
+          [ngModel]="email()"
+          (ngModelChange)="email.set($event)"
+          required
+          autofocus
+        />
+      </label>
+
+      <label class="field">
+        <span class="label">Senha <span class="required">*</span></span>
+        <input
+          type="password"
+          class="input"
+          placeholder="••••••••"
+          autocomplete="current-password"
+          name="senha"
+          [ngModel]="senha()"
+          (ngModelChange)="senha.set($event)"
+          required
+        />
+      </label>
+
+      @if (error()) {
+        <div class="error-box">
+          <span>⚠️</span> {{ error() }}
+        </div>
+      }
+
+      <button
+        type="submit"
+        class="submit"
+        [disabled]="!email().trim() || !senha() || loading()">
+        @if (loading()) {
+          <span>Entrando...</span>
+        } @else {
+          <span>Entrar</span>
+        }
+      </button>
+    </form>
+  </div>
+</div>

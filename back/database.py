@@ -1,16 +1,14 @@
-import os
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, MetaData, event
 from sqlalchemy.orm import sessionmaker, declarative_base
-from dotenv import load_dotenv
 
-load_dotenv()
+from config import POSTGRES_URL, POSTGRES_SCHEMA
 
-DATABASE_URL = os.environ.get("POSTGRES_URL", "")
+DATABASE_URL = POSTGRES_URL
+SCHEMA = POSTGRES_SCHEMA
 
-Base = declarative_base()
+metadata = MetaData(schema=SCHEMA)
+Base = declarative_base(metadata=metadata)
 
-# Engine and session are lazily created so the app can start even if the
-# database is not yet configured (e.g., first boot before migrations).
 _engine = None
 _SessionLocal = None
 
@@ -23,6 +21,13 @@ def _get_engine():
                 "POSTGRES_URL not set. Please configure it in the .env file."
             )
         _engine = create_engine(DATABASE_URL)
+
+        @event.listens_for(_engine, "connect")
+        def _set_search_path(dbapi_connection, connection_record):
+            cursor = dbapi_connection.cursor()
+            cursor.execute(f'SET search_path TO {SCHEMA}, extensions, public')
+            cursor.close()
+
     return _engine
 
 

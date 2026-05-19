@@ -1,24 +1,17 @@
-import os
 from typing import List
-from dotenv import load_dotenv
 
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_postgres import PGVector
 from langchain_core.documents import Document
 
-load_dotenv()
-
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
-POSTGRES_URL = os.environ.get(
-    "POSTGRES_URL", "postgresql://postgres:postgres@localhost:5432/ticket_maker"
-)
+from config import GEMINI_API_KEY, POSTGRES_URL_WITH_SEARCH_PATH as POSTGRES_URL
 
 COLLECTION_NAME = "ticket_maker_rag"
 
 def get_embeddings():
     """Return the configured Google GenAI embeddings model."""
     return GoogleGenerativeAIEmbeddings(
-        model="models/text-embedding-004",
+        model="models/gemini-embedding-001",
         google_api_key=GEMINI_API_KEY,
     )
 

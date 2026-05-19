@@ -1,6 +1,6 @@
 {
   "name": "ticket-maker",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
@@ -20,8 +20,8 @@
     "@angular/platform-server": "^21.2.0",
     "@angular/router": "^21.2.0",
     "@angular/ssr": "^21.2.11",
+    "@lucide/angular": "^1.16.0",
     "express": "^5.1.0",
-    "lucide-angular": "^0.474.0",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0"
   },

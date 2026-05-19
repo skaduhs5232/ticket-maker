@@ -13,4 +13,4 @@ pgvector
 langchain-postgres
 python-multipart
 requests
-sse-starlette
+sse-starlettebcrypt

@@ -1,44 +1,65 @@
 """
-Endpoints:
-  GET  /api/projects              → Lists all OpenProject projects
-  POST /api/conversations         → Creates a new conversation
-  GET  /api/conversations/{id}    → Gets conversation history
-  POST /api/chat/stream           → Starts SSE chat stream with the AI agent
-  POST /api/ingest                → Triggers document re-ingestion (admin)
-"""
+Endpoints públicos:
+  POST /api/auth/login            → autentica via SQL function e devolve token
+  POST /api/auth/logout           → revoga o token
+  GET  /api/auth/me               → dados do usuário corrente + projetos permitidos
 
+  GET  /api/projects              → lista projetos do OpenProject filtrados pelo ACL
+  POST /api/conversations         → cria conversa
+  GET  /api/conversations         → lista conversas do usuário corrente
+  GET  /api/conversations/{cod}   → histórico completo de uma conversa
+  POST /api/chat/stream           → SSE com a resposta do agente
+  POST /api/ingest                → re-roda a ingestão RAG (operacional)
+"""
 import asyncio
 from typing import Optional
-from fastapi import FastAPI, Depends, HTTPException, Request
+from uuid import UUID as UUIDType
+
+from fastapi import FastAPI, Depends, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from database import Base, _get_engine, get_db
-from models import Conversation, Message
+from config import FRONTEND_URL, POSTGRES_SCHEMA
+from database import _get_engine, get_db
+from models import Conversa, Mensagem, Usuario
 from openproject_service import get_projects
 from agent import stream_agent_response
+from auth import (
+    authenticate,
+    issue_token,
+    revoke_token,
+    get_current_user,
+    get_user_project_ids,
+    ensure_user_has_project,
+)
 
-# Create tables on startup only if the database is configured.
-# In production, use Alembic migrations instead.
-try:
+
+# Garante que o schema exista (idempotente).
+def _ensure_schema():
+    from sqlalchemy import text
     engine = _get_engine()
-    Base.metadata.create_all(bind=engine)
+    with engine.begin() as conn:
+        conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS {POSTGRES_SCHEMA}'))
+
+
+try:
+    _ensure_schema()
 except Exception as e:
     import logging
     logging.warning(f"Could not connect to database on startup: {e}")
-    logging.warning("Please set POSTGRES_URL in your .env file and run migrations.")
+
 
 app = FastAPI(
     title="Ticket Maker API",
-    description="AI-powered support assistant with OpenProject integration",
+    description="Assistente de suporte com OpenProject + RAG",
     version="1.0.0",
 )
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  
+    allow_origins=[FRONTEND_URL, "http://localhost:4200"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -49,18 +70,37 @@ app.add_middleware(
 # Schemas
 # ─────────────────────────────────────────────
 
+class LoginRequest(BaseModel):
+    email: str
+    senha: str
+
+
 class ChatRequest(BaseModel):
     message: str
     project_id: int
-    conversation_id: Optional[int] = None
+    conversation_id: Optional[str] = None  # UUID em string
+    project_name: Optional[str] = ""
 
 
 class ConversationCreate(BaseModel):
     project_id: int
+    project_name: Optional[str] = None
 
 
 # ─────────────────────────────────────────────
-# Routes
+# Util
+# ─────────────────────────────────────────────
+
+def _user_payload(user: Usuario) -> dict:
+    return {
+        "codigo": str(user.codigo),
+        "nome": user.nome,
+        "email": user.email,
+    }
+
+
+# ─────────────────────────────────────────────
+# Healthcheck
 # ─────────────────────────────────────────────
 
 @app.get("/health")
@@ -68,67 +108,179 @@ def health():
     return {"status": "ok"}
 
 
+# ─────────────────────────────────────────────
+# Auth
+# ─────────────────────────────────────────────
+
+@app.post("/api/auth/login")
+def login(body: LoginRequest, db: Session = Depends(get_db)):
+    user = authenticate(db, body.email, body.senha)
+    if not user:
+        raise HTTPException(status_code=401, detail="E-mail ou senha inválidos.")
+    token = issue_token(db, user.codigo)
+    project_ids = get_user_project_ids(db, user.codigo)
+    return {
+        "token": token,
+        "user": _user_payload(user),
+        "project_ids": project_ids,
+    }
+
+
+@app.post("/api/auth/logout")
+def logout(
+    db: Session = Depends(get_db),
+    x_auth_token: Optional[str] = Header(default=None, alias="X-Auth-Token"),
+):
+    if x_auth_token:
+        revoke_token(db, x_auth_token)
+    return {"status": "ok"}
+
+
+@app.get("/api/auth/me")
+def me(user: Usuario = Depends(get_current_user), db: Session = Depends(get_db)):
+    return {
+        "user": _user_payload(user),
+        "project_ids": get_user_project_ids(db, user.codigo),
+    }
+
+
+# ─────────────────────────────────────────────
+# Projetos (filtrados pelo ACL)
+# ─────────────────────────────────────────────
+
 @app.get("/api/projects")
-def list_projects():
-    """Returns all active projects from OpenProject."""
+def list_projects(
+    db: Session = Depends(get_db),
+    user: Usuario = Depends(get_current_user),
+):
     try:
-        projects = get_projects()
-        return {"projects": projects}
+        all_projects = get_projects()
     except Exception as e:
         raise HTTPException(status_code=502, detail=str(e))
+    allowed = set(get_user_project_ids(db, user.codigo))
+    return {"projects": [p for p in all_projects if p["id"] in allowed]}
 
+
+# ─────────────────────────────────────────────
+# Conversas
+# ─────────────────────────────────────────────
 
 @app.post("/api/conversations")
-def create_conversation(body: ConversationCreate, db: Session = Depends(get_db)):
-    """Creates a new conversation tied to a project."""
-    conv = Conversation(project_id=str(body.project_id))
+def create_conversation(
+    body: ConversationCreate,
+    db: Session = Depends(get_db),
+    user: Usuario = Depends(get_current_user),
+):
+    ensure_user_has_project(db, user, body.project_id)
+    conv = Conversa(
+        usuario=user.codigo,
+        projeto_id=body.project_id,
+        projeto_nome=body.project_name,
+    )
     db.add(conv)
     db.commit()
     db.refresh(conv)
-    return {"conversation_id": conv.id, "project_id": conv.project_id}
+    return {
+        "conversation_id": str(conv.codigo),
+        "project_id": conv.projeto_id,
+    }
 
 
-@app.get("/api/conversations/{conversation_id}")
-def get_conversation(conversation_id: int, db: Session = Depends(get_db)):
-    """Returns all messages in a conversation."""
-    conv = db.query(Conversation).filter(Conversation.id == conversation_id).first()
-    if not conv:
-        raise HTTPException(status_code=404, detail="Conversa não encontrada")
-
-    messages = (
-        db.query(Message)
-        .filter(Message.conversation_id == conversation_id)
-        .order_by(Message.created_at)
+@app.get("/api/conversations")
+def list_conversations(
+    db: Session = Depends(get_db),
+    user: Usuario = Depends(get_current_user),
+):
+    convs = (
+        db.query(Conversa)
+        .filter(Conversa.usuario == user.codigo)
+        .order_by(Conversa.atualizacao_dt.desc())
         .all()
     )
     return {
-        "conversation_id": conv.id,
-        "project_id": conv.project_id,
+        "conversations": [
+            {
+                "codigo": str(c.codigo),
+                "projeto_id": c.projeto_id,
+                "projeto_nome": c.projeto_nome,
+                "ticket_numero": c.ticket_numero,
+                "criacao_dt": c.criacao_dt.isoformat() if c.criacao_dt else None,
+                "atualizacao_dt": c.atualizacao_dt.isoformat() if c.atualizacao_dt else None,
+            }
+            for c in convs
+        ]
+    }
+
+
+@app.get("/api/conversations/{codigo}")
+def get_conversation(
+    codigo: str,
+    db: Session = Depends(get_db),
+    user: Usuario = Depends(get_current_user),
+):
+    try:
+        uid = UUIDType(codigo)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="codigo inválido")
+
+    conv = db.query(Conversa).filter(Conversa.codigo == uid).first()
+    if not conv or conv.usuario != user.codigo:
+        raise HTTPException(status_code=404, detail="Conversa não encontrada")
+
+    msgs = (
+        db.query(Mensagem)
+        .filter(Mensagem.conversa == conv.codigo)
+        .order_by(Mensagem.criacao_dt)
+        .all()
+    )
+    return {
+        "conversation_id": str(conv.codigo),
+        "projeto_id": conv.projeto_id,
+        "projeto_nome": conv.projeto_nome,
+        "ticket_numero": conv.ticket_numero,
         "messages": [
             {
-                "id": m.id,
-                "role": m.role,
-                "content": m.content,
-                "created_at": m.created_at.isoformat() if m.created_at else None,
+                "codigo": str(m.codigo),
+                "role": m.papel,
+                "content": m.conteudo,
+                "tools": m.ferramentas,
+                "created_at": m.criacao_dt.isoformat() if m.criacao_dt else None,
             }
-            for m in messages
+            for m in msgs
         ],
     }
 
 
+# ─────────────────────────────────────────────
+# Chat SSE
+# ─────────────────────────────────────────────
+
 @app.post("/api/chat/stream")
-async def chat_stream(body: ChatRequest, db: Session = Depends(get_db)):
- 
+async def chat_stream(
+    body: ChatRequest,
+    db: Session = Depends(get_db),
+    user: Usuario = Depends(get_current_user),
+):
+    ensure_user_has_project(db, user, body.project_id)
+
+    conv_uuid: Optional[UUIDType] = None
+    if body.conversation_id:
+        try:
+            conv_uuid = UUIDType(body.conversation_id)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="conversation_id inválido")
+
     async def event_generator():
         try:
             async for chunk in stream_agent_response(
                 user_message=body.message,
                 project_id=body.project_id,
-                conversation_id=body.conversation_id,
+                conversation_id=conv_uuid,
                 db=db,
+                user=user,
+                project_name=body.project_name or "",
             ):
                 yield chunk
-                # Small yield to prevent blocking
                 await asyncio.sleep(0)
         except Exception as e:
             import json
@@ -144,16 +296,16 @@ async def chat_stream(body: ChatRequest, db: Session = Depends(get_db)):
     )
 
 
+# ─────────────────────────────────────────────
+# Ingestão RAG
+# ─────────────────────────────────────────────
+
 @app.post("/api/ingest")
-def trigger_ingestion():
-    """
-    Admin endpoint to re-run document ingestion.
-    Runs the ingest pipeline synchronously.
-    """
+def trigger_ingestion(user: Usuario = Depends(get_current_user)):
     from pathlib import Path
     from ingest import ingest
 
-    docs_dir = Path(__file__).parent / "docs"
+    docs_dir = Path(__file__).parent / "documentacoes_projetos"
     try:
         ingest(docs_dir, clear=False)
         return {"status": "ok", "message": "Ingestão concluída com sucesso."}

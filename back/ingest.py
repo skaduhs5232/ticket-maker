@@ -1,27 +1,68 @@
-import os
 import sys
 import argparse
 from pathlib import Path
-from typing import List
-from dotenv import load_dotenv
+from typing import List, Dict, Optional
 
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter, MarkdownHeaderTextSplitter
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_postgres import PGVector
 
-load_dotenv()
+from config import GEMINI_API_KEY, POSTGRES_URL_WITH_SEARCH_PATH as POSTGRES_URL
+from openproject_service import get_projects
 
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
-POSTGRES_URL = os.environ.get(
-    "POSTGRES_URL", "postgresql://postgres:postgres@localhost:5432/ticket_maker"
-)
 COLLECTION_NAME = "ticket_maker_rag"
 
-def load_markdown_docs(docs_dir: Path) -> List[Document]:
+
+def _normalize(s: str) -> str:
+    """Normaliza nomes para comparação (case-insensitive, sem espaços/acentos básicos)."""
+    import unicodedata
+    s = unicodedata.normalize("NFD", s)
+    s = "".join(c for c in s if unicodedata.category(c) != "Mn")
+    return s.lower().replace("_", "").replace("-", "").replace(" ", "")
+
+
+def map_folders_to_openproject(docs_dir: Path) -> Dict[str, Dict]:
     """
-    Recursively reads all .md files from the docs directory.
-    Each subdirectory name is used as the project_name metadata.
+    Lista as subpastas de docs_dir e tenta casar cada uma com um projeto do
+    OpenProject (por identifier ou name normalizados).
+
+    Retorna: { folder_name: {"id": int, "name": str, "identifier": str} }
+    """
+    print("\n Consultando projetos do OpenProject para mapeamento...")
+    op_projects = get_projects()
+    print(f"   {len(op_projects)} projeto(s) disponíveis no OpenProject.")
+
+    folders = [p for p in docs_dir.iterdir() if p.is_dir()]
+    mapping: Dict[str, Dict] = {}
+
+    for folder in folders:
+        norm_folder = _normalize(folder.name)
+        match = None
+        for proj in op_projects:
+            if _normalize(proj["identifier"]) == norm_folder or _normalize(proj["name"]) == norm_folder:
+                match = proj
+                break
+
+        if match:
+            mapping[folder.name] = {
+                "id": match["id"],
+                "name": match["name"],
+                "identifier": match["identifier"],
+            }
+            print(f"   ✅ {folder.name} → OpenProject #{match['id']} ({match['name']})")
+        else:
+            print(f"   ⚠️  {folder.name}: nenhum projeto correspondente no OpenProject (será ingerido sem project_id)")
+            mapping[folder.name] = {"id": None, "name": folder.name, "identifier": folder.name}
+
+    return mapping
+
+
+def load_markdown_docs(docs_dir: Path, folder_map: Dict[str, Dict]) -> List[Document]:
+    """
+    Lê recursivamente os arquivos .md do diretório.
+    O nome da subpasta imediata é usado para casar com um projeto do OpenProject,
+    e o project_id resultante é salvo nos metadados (usado depois pelo filtro do RAG).
     """
     documents = []
     md_files = list(docs_dir.rglob("*.md"))
@@ -30,29 +71,35 @@ def load_markdown_docs(docs_dir: Path) -> List[Document]:
         print(f"⚠️  Nenhum arquivo .md encontrado em: {docs_dir}")
         return documents
 
-    print(f"📂 Encontrados {len(md_files)} arquivo(s) Markdown para processar...")
+    print(f"\n📂 Encontrados {len(md_files)} arquivo(s) Markdown para processar...")
 
     for md_file in md_files:
         if md_file.name == "README.md":
             continue
 
-        # Determine project from immediate subfolder of docs_dir
         relative = md_file.relative_to(docs_dir)
         parts = relative.parts
-        project_name = parts[0] if len(parts) > 1 else "geral"
+        folder_name = parts[0] if len(parts) > 1 else "geral"
+
+        proj = folder_map.get(folder_name, {"id": None, "name": folder_name, "identifier": folder_name})
 
         content = md_file.read_text(encoding="utf-8")
+        if not content.strip():
+            print(f"  ⏭️  Pulando arquivo vazio: {relative}")
+            continue
 
         doc = Document(
             page_content=content,
             metadata={
-                "source": str(md_file.relative_to(docs_dir)),
-                "project_name": project_name,
+                "source": str(relative),
+                "project_id": str(proj["id"]) if proj["id"] is not None else "",
+                "project_name": proj["name"],
+                "project_identifier": proj["identifier"],
                 "file_name": md_file.name,
             },
         )
         documents.append(doc)
-        print(f"  ✅ Carregado: {relative} (projeto: {project_name})")
+        print(f"  ✅ Carregado: {relative} (projeto: {proj['name']} | id={proj['id']})")
 
     return documents
 
@@ -102,8 +149,11 @@ def ingest(docs_dir: Path, clear: bool = False):
     print(f"   Diretório: {docs_dir.resolve()}")
     print(f"   PostgreSQL: {POSTGRES_URL.split('@')[-1] if '@' in POSTGRES_URL else POSTGRES_URL}")
 
+    # Mapeia pastas → projetos do OpenProject
+    folder_map = map_folders_to_openproject(docs_dir)
+
     # Load
-    documents = load_markdown_docs(docs_dir)
+    documents = load_markdown_docs(docs_dir, folder_map)
     if not documents:
         print("\n❌ Nenhum documento para processar. Abortando.")
         sys.exit(0)
@@ -116,7 +166,7 @@ def ingest(docs_dir: Path, clear: bool = False):
     # Embed & Store
     print(f"\n🤖 Gerando embeddings e salvando no PostgreSQL...")
     embeddings = GoogleGenerativeAIEmbeddings(
-        model="models/text-embedding-004",
+        model="models/gemini-embedding-001",
         google_api_key=GEMINI_API_KEY,
     )
 
@@ -148,8 +198,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--docs-dir",
         type=Path,
-        default=Path(__file__).parent / "docs",
-        help="Diretório raiz dos documentos Markdown (padrão: ./docs)",
+        default=Path(__file__).parent / "documentacoes_projetos",
+        help="Diretório raiz dos documentos Markdown (padrão: ./documentacoes_projetos)",
     )
     parser.add_argument(
         "--clear",

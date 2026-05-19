@@ -1,6 +1,7 @@
-import { Injectable, NgZone } from '@angular/core';
+import { Injectable, NgZone, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
+import { AuthService } from './auth.service';
 
 export type MessageRole = 'user' | 'ai';
 
@@ -16,27 +17,34 @@ export interface ChatMessage {
 export interface ToolCallEvent {
   tool: string;
   args: Record<string, unknown>;
+  id?: string;
+  done?: boolean;
 }
 
 export interface StreamEvent {
-  type: 'token' | 'tool_call' | 'done' | 'error';
+  type: 'token' | 'tool_call' | 'tool_result' | 'done' | 'error';
   content?: string;
   tool?: string;
   args?: Record<string, unknown>;
-  conversation_id?: number;
+  id?: string;
+  conversation_id?: string;
   message?: string;
 }
 
 @Injectable({ providedIn: 'root' })
 export class ChatService {
   private apiUrl = environment.api_back;
+  private auth = inject(AuthService);
 
   constructor(private ngZone: NgZone) {}
 
   streamMessage(
     message: string,
     projectId: number,
-    conversationId: number | null
+    conversationId: string | null,
+    options: {
+      projectName?: string | null;
+    } = {}
   ): Observable<StreamEvent> {
     return new Observable<StreamEvent>((observer) => {
       // Use fetch() with a POST + SSE read via ReadableStream
@@ -44,13 +52,18 @@ export class ChatService {
         message,
         project_id: projectId,
         conversation_id: conversationId,
+        project_name: options.projectName ?? '',
       });
 
       const controller = new AbortController();
 
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      const token = this.auth.token();
+      if (token) headers['X-Auth-Token'] = token;
+
       fetch(`${this.apiUrl}/api/chat/stream`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body,
         signal: controller.signal,
       })

@@ -8,7 +8,7 @@
       <div class="selector-card">
         <div class="selector-header">
           <div class="logo-mark">
-            <lucide-icon name="ticket" [size]="28" strokeWidth="2.2" style="color: #8b5cf6;"></lucide-icon>
+            <svg lucideTicket [size]="28" strokeWidth="2.2" style="color: #8b5cf6;"></svg>
           </div>
           <div>
             <h1 class="selector-title">Ticket Maker</h1>
@@ -30,7 +30,7 @@
 
         @if (projectsError()) {
           <div class="error-box">
-            <span>⚠️</span> {{ projectsError() }}
+            {{ projectsError() }}
           </div>
         }
 
@@ -48,7 +48,7 @@
                     <span class="project-item-desc">{{ project.description }}</span>
                   }
                 </div>
-                <lucide-icon name="chevron-right" class="project-item-arrow" [size]="16" style="flex-shrink:0"></lucide-icon>
+                <svg lucideChevronRight class="project-item-arrow" [size]="16" style="flex-shrink:0"></svg>
               </button>
             }
           </div>
@@ -66,7 +66,7 @@
       <!-- Sidebar -->
       <aside class="sidebar">
         <div class="sidebar-logo">
-          <lucide-icon name="ticket" [size]="22" strokeWidth="2.2" style="color: #8b5cf6;"></lucide-icon>
+          <svg lucideTicket [size]="22" strokeWidth="2.2" style="color: #8b5cf6;"></svg>
           <span class="sidebar-title">Ticket Maker</span>
         </div>
 
@@ -78,14 +78,33 @@
           </div>
         </div>
 
-        <button class="sidebar-change-btn" id="change-project-btn" (click)="changeProject()">
-          <lucide-icon name="arrow-left-right" [size]="14"></lucide-icon>
-          Trocar projeto
-        </button>
+        @if (canChangeProject()) {
+          <button class="sidebar-change-btn" id="change-project-btn" (click)="changeProject()">
+            <svg lucideArrowLeftRight [size]="14"></svg>
+            Trocar projeto
+          </button>
+        }
+
+        <div class="sidebar-section">
+          <p class="sidebar-label">Identificado como</p>
+          <div class="sidebar-user">
+            <div class="avatar avatar--user" style="width:28px;height:28px;">
+              <svg lucideUser [size]="14" strokeWidth="2.2"></svg>
+            </div>
+            <span class="sidebar-user-name">{{ userName() }}</span>
+          </div>
+          <button
+            class="theme-toggle-btn"
+            type="button"
+            (click)="themeService.toggle()"
+            [title]="themeService.theme() === 'dark' ? 'Mudar para tema claro' : 'Mudar para tema escuro'">
+            {{ themeService.theme() === 'dark' ? 'Tema claro' : 'Tema escuro' }}
+          </button>
+          <button class="sidebar-logout-btn" (click)="logout()">Sair</button>
+        </div>
 
         <div class="sidebar-footer">
-          <div class="status-dot"></div>
-          <span>Gemini AI</span>
+         
         </div>
       </aside>
 
@@ -95,10 +114,12 @@
           <div class="project-avatar">{{ selectedProject()?.name?.[0] }}</div>
           <span class="mobile-project-name">{{ selectedProjectName() }}</span>
         </div>
-        <button class="mobile-change-btn" (click)="changeProject()">
-          <lucide-icon name="arrow-left-right" [size]="14"></lucide-icon>
-          Trocar projeto
-        </button>
+        @if (canChangeProject()) {
+          <button class="mobile-change-btn" (click)="changeProject()">
+            <svg lucideArrowLeftRight [size]="14"></svg>
+            Trocar projeto
+          </button>
+        }
       </div>
 
       <!-- Main chat area -->
@@ -126,7 +147,7 @@
 
               @if (msg.role === 'ai') {
                 <div class="avatar avatar--ai">
-                  <lucide-icon name="bot" [size]="16" strokeWidth="2.2" style="color: #fff;"></lucide-icon>
+                  <svg lucideBot [size]="16" strokeWidth="2.2" style="color: #fff;"></svg>
                 </div>
               }
 
@@ -135,9 +156,13 @@
                 <!-- Tool call indicators -->
                 @if (msg.toolCalls && msg.toolCalls.length > 0) {
                   <div class="tool-calls">
-                    @for (tc of msg.toolCalls; track tc.tool) {
-                      <div class="tool-call-badge">
-                        <div class="tool-call-spinner"></div>
+                    @for (tc of msg.toolCalls; track $index) {
+                      <div class="tool-call-badge" [class.tool-call-badge--done]="tc.done">
+                        @if (tc.done) {
+                          <span class="tool-call-check">✓</span>
+                        } @else {
+                          <div class="tool-call-spinner"></div>
+                        }
                         <span>{{ getToolLabel(tc.tool) }}</span>
                       </div>
                     }
@@ -168,7 +193,7 @@
 
               @if (msg.role === 'user') {
                 <div class="avatar avatar--user">
-                  <lucide-icon name="user" [size]="16" strokeWidth="2.2"></lucide-icon>
+                  <svg lucideUser [size]="16" strokeWidth="2.2"></svg>
                 </div>
               }
             </div>
@@ -200,7 +225,7 @@
               @if (isStreaming()) {
                 <div class="send-spinner"></div>
               } @else {
-                <lucide-icon name="send" [size]="18"></lucide-icon>
+                <svg lucideSend [size]="18"></svg>
               }
             </button>
           </div>

@@ -1,38 +1,12 @@
 /* ─── Design System ────────────────────────────────────────────────── */
+/* Tokens comuns (não-cor) ficam no :root.
+   Cores ficam dentro de [data-theme=...] para suportar troca em runtime. */
 :root {
-  --color-bg:          #0d0f14;
-  --color-surface:     #13161e;
-  --color-surface-2:   #1a1e2a;
-  --color-surface-3:   #222636;
-  --color-border:      rgba(255,255,255,0.07);
-  --color-border-hover:rgba(255,255,255,0.15);
-
-  --color-primary:     #6366f1;
-  --color-primary-dim: rgba(99,102,241,0.15);
-  --color-primary-glow:rgba(99,102,241,0.35);
-  --color-accent:      #8b5cf6;
-  --color-accent-2:    #06b6d4;
-
-  --color-user-bubble: #1e2035;
-  --color-ai-bubble:   #13161e;
-
-  --color-text:        #e2e4ef;
-  --color-text-muted:  #8b8fa8;
-  --color-text-dim:    #545772;
-
-  --color-success:     #10b981;
-  --color-warning:     #f59e0b;
-  --color-error:       #ef4444;
-
   --radius-sm:   6px;
   --radius-md:   12px;
   --radius-lg:   18px;
   --radius-xl:   24px;
   --radius-full: 9999px;
-
-  --shadow-glow: 0 0 40px rgba(99,102,241,0.12);
-  --shadow-card: 0 4px 24px rgba(0,0,0,0.4);
-  --shadow-input: 0 2px 8px rgba(0,0,0,0.3);
 
   --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   --transition-slow: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
@@ -40,6 +14,65 @@
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   font-size: 15px;
   line-height: 1.6;
+
+  /* Cores neutras de marca (não mudam entre temas) */
+  --color-primary:     #6366f1;
+  --color-primary-dim: rgba(99,102,241,0.15);
+  --color-primary-glow:rgba(99,102,241,0.35);
+  --color-accent:      #8b5cf6;
+  --color-accent-2:    #06b6d4;
+  --color-success:     #10b981;
+  --color-warning:     #f59e0b;
+  --color-error:       #ef4444;
+}
+
+/* ── DARK (default) ───────────────────────────────────────────────── */
+:root,
+:root[data-theme='dark'] {
+  --color-bg:          #0d0f14;
+  --color-surface:     #13161e;
+  --color-surface-2:   #1a1e2a;
+  --color-surface-3:   #222636;
+  --color-border:      rgba(255,255,255,0.07);
+  --color-border-hover:rgba(255,255,255,0.15);
+
+  --color-user-bubble: #1e2035;
+  --color-ai-bubble:   #13161e;
+
+  --color-text:        #e2e4ef;
+  --color-text-muted:  #8b8fa8;
+  --color-text-dim:    #545772;
+  --color-text-on-primary: #ffffff;
+
+  --shadow-glow:  0 0 40px rgba(99,102,241,0.12);
+  --shadow-card:  0 4px 24px rgba(0,0,0,0.4);
+  --shadow-input: 0 2px 8px rgba(0,0,0,0.3);
+
+  --overlay-bg: rgba(8, 10, 16, 0.7);
+}
+
+/* ── LIGHT ────────────────────────────────────────────────────────── */
+:root[data-theme='light'] {
+  --color-bg:          #f6f7fb;
+  --color-surface:     #ffffff;
+  --color-surface-2:   #f1f3f9;
+  --color-surface-3:   #e4e7ef;
+  --color-border:      rgba(15,23,42,0.08);
+  --color-border-hover:rgba(15,23,42,0.18);
+
+  --color-user-bubble: #e9eaff;
+  --color-ai-bubble:   #ffffff;
+
+  --color-text:        #0f172a;
+  --color-text-muted:  #475569;
+  --color-text-dim:    #94a3b8;
+  --color-text-on-primary: #ffffff;
+
+  --shadow-glow:  0 0 40px rgba(99,102,241,0.18);
+  --shadow-card:  0 4px 24px rgba(15,23,42,0.08);
+  --shadow-input: 0 2px 8px rgba(15,23,42,0.06);
+
+  --overlay-bg: rgba(15, 23, 42, 0.45);
 }
 
 /* ─── Reset ─────────────────────────────────────────────────────────── */
