@@ -52,10 +52,10 @@ export class ChatComponent implements OnInit, AfterViewChecked {
   inputText = signal('');
   isLoading = signal(false);
   isStreaming = signal(false);
-  projectsLoading = signal(false);
+  projectsLoading = signal(true); // inicia como carregando
   projectsError = signal('');
   conversationId = signal<string | null>(null);
-  showProjectSelector = signal(false);
+  showProjectSelector = signal(true); // inicia mostrando seletor (com loader)
 
   // Identificação derivada do usuário autenticado
   userName = computed(() => this.authService.user()?.nome ?? '');
