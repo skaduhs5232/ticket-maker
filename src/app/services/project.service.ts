@@ -20,7 +20,7 @@ export class ProjectService {
 
   getProjects(): Observable<Project[]> {
     return this.http
-      .get<{ projects: Project[] }>(`https://24z42w-ip-170-0-202-57.tunnelmole.net/api/projects`)
+      .get<{ projects: Project[] }>(`https://vonmvr-ip-170-0-202-57.tunnelmole.net/api/projects`)
       .pipe(map((res) => res.projects));
   }
 }

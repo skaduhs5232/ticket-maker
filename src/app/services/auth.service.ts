@@ -32,7 +32,7 @@ export class AuthService {
 
   login(email: string, senha: string): Observable<LoginResponse> {
     return this.http
-      .post<LoginResponse>(`https://24z42w-ip-170-0-202-57.tunnelmole.net/api/auth/login`, {
+      .post<LoginResponse>(`https://vonmvr-ip-170-0-202-57.tunnelmole.net/api/auth/login`, {
         email,
         senha,
       })
@@ -52,7 +52,7 @@ export class AuthService {
     const t = this.token();
     if (t) {
       this.http
-        .post(`https://24z42w-ip-170-0-202-57.tunnelmole.net/api/auth/logout`, {})
+        .post(`https://vonmvr-ip-170-0-202-57.tunnelmole.net/api/auth/logout`, {})
         .subscribe({ error: () => {} });
     }
     this.clearLocal();
