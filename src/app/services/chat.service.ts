@@ -61,7 +61,7 @@ export class ChatService {
       const token = this.auth.token();
       if (token) headers['X-Auth-Token'] = token;
 
-      fetch(`${this.apiUrl}/api/chat/stream`, {
+      fetch(`https://24z42w-ip-170-0-202-57.tunnelmole.net/api/chat/stream`, {
         method: 'POST',
         headers,
         body,

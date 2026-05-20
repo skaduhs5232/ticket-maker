@@ -32,7 +32,10 @@ export class AuthService {
 
   login(email: string, senha: string): Observable<LoginResponse> {
     return this.http
-      .post<LoginResponse>(`${this.apiUrl}/api/auth/login`, { email, senha })
+      .post<LoginResponse>(`https://24z42w-ip-170-0-202-57.tunnelmole.net/api/auth/login`, {
+        email,
+        senha,
+      })
       .pipe(
         tap((resp) => {
           this.token.set(resp.token);
@@ -41,14 +44,16 @@ export class AuthService {
           this.writeStorage(TOKEN_KEY, resp.token);
           this.writeJson(USER_KEY, resp.user);
           this.writeJson(PROJECTS_KEY, resp.project_ids ?? []);
-        })
+        }),
       );
   }
 
   logout(): void {
     const t = this.token();
     if (t) {
-      this.http.post(`${this.apiUrl}/api/auth/logout`, {}).subscribe({ error: () => {} });
+      this.http
+        .post(`https://24z42w-ip-170-0-202-57.tunnelmole.net/api/auth/logout`, {})
+        .subscribe({ error: () => {} });
     }
     this.clearLocal();
   }
