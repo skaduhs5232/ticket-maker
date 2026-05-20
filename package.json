@@ -8,7 +8,7 @@
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
     "serve:ssr:ticket-maker": "node dist/ticket-maker/server/server.mjs",
-    "predeploy": "ng build --base-href /ticket-maker/",
+    "predeploy": "ng build --base-href /ticket-maker/ && cp dist/ticket-maker/browser/index.csr.html dist/ticket-maker/browser/index.html && cp dist/ticket-maker/browser/index.csr.html dist/ticket-maker/browser/404.html",
     "deploy": "gh-pages -d dist/ticket-maker/browser"
   },
   "private": true,
